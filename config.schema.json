@@ -1,0 +1,57 @@
+{
+  "pluginAlias": "CryzeWyze",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Homebridge plugin for Wyze cameras via Cryze bridge. Supports Doorbell Pro!",
+  "footerDisplay": "Requires Cryze Docker containers to be running. See README for setup.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "cryzeApiUrl": {
+        "title": "Cryze API URL",
+        "type": "string",
+        "default": "http://localhost:8080",
+        "description": "URL to Cryze API service"
+      },
+      "rtspHost": {
+        "title": "RTSP Host",
+        "type": "string", 
+        "default": "localhost",
+        "description": "Host where Cryze RTSP streams are available"
+      },
+      "rtspPort": {
+        "title": "RTSP Port",
+        "type": "integer",
+        "default": 8555,
+        "description": "Port for RTSP streams"
+      },
+      "cameras": {
+        "title": "Cameras",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Camera Name",
+              "type": "string",
+              "description": "Display name in HomeKit"
+            },
+            "wyzeName": {
+              "title": "Wyze Stream Name",
+              "type": "string",
+              "description": "Stream name from Cryze (e.g., front_door)"
+            },
+            "unbridge": {
+              "title": "Unbridge Camera",
+              "type": "boolean",
+              "default": false,
+              "description": "Expose as separate accessory (recommended for Doorbell)"
+            }
+          },
+          "required": ["name", "wyzeName"]
+        }
+      }
+    },
+    "required": ["cryzeApiUrl"]
+  }
+}
