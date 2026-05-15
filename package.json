@@ -1,0 +1,53 @@
+{
+  "name": "homebridge-cryze-wyze",
+  "version": "1.0.0",
+  "description": "Homebridge plugin for Wyze cameras via Cryze (supports Doorbell Pro, Battery Cam Pro)",
+  "main": "dist/index.js",
+  "scripts": {
+    "lint": "eslint src/**/*.ts --fix",
+    "watch": "npm run build && npm link && nodemon",
+    "build": "rimraf dist && tsc",
+    "prepublishOnly": "npm run lint && npm run build"
+  },
+  "author": "Josh Adland",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeadland/homebridge-cryze-wyze.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jeadland/homebridge-cryze-wyze/issues"
+  },
+  "homepage": "https://github.com/jeadland/homebridge-cryze-wyze#readme",
+  "keywords": [
+    "homebridge",
+    "homebridge-plugin",
+    "wyze",
+    "cryze",
+    "homekit",
+    "camera",
+    "doorbell",
+    "video-doorbell"
+  ],
+  "engines": {
+    "node": ">=14.18.1",
+    "homebridge": ">=1.3.5"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.6",
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.12",
+    "@types/node-fetch": "^2.5.12",
+    "@types/ws": "^8.5.3",
+    "@typescript-eslint/eslint-plugin": "^5.6.0",
+    "@typescript-eslint/parser": "^5.6.0",
+    "eslint": "^8.4.1",
+    "homebridge": "^1.3.9",
+    "nodemon": "^2.0.15",
+    "rimraf": "^3.0.2",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.2"
+  }
+}
