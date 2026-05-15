@@ -1,0 +1,38 @@
+# Example Cryze backend for homebridge-cryze-wyze.
+# This is a reference layout; upstream Cryze images may need to be built locally
+# until official patched images are published.
+services:
+  cryze_api:
+    build:
+      context: ./cryze_v2/cryze_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - cryze_api_data:/data
+
+  cryze_android_app:
+    build:
+      context: ./cryze_v2/cryze_android_app
+      args:
+        CRYZE_BACKEND_URL: "http://cryze_api:8080"
+        CRYZE_RTSP_SERVER: "localhost"
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8555:8554" # RTSP streams exposed to Homebridge
+      - "5556:5555" # adb/debugging
+    command:
+      - androidboot.use_memfd=1
+      - androidboot.redroid_net_ndns=1
+      - androidboot.redroid_net_dns1=127.0.0.11
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    restart: unless-stopped
+    network_mode: service:cryze_android_app
+
+volumes:
+  cryze_api_data:

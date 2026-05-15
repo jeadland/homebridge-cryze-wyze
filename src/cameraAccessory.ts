@@ -1,67 +1,86 @@
-import { PlatformAccessory, Service, PlatformConfig } from 'homebridge';
-import { StreamingDelegate } from './streamingDelegate';
+import {
+  AudioStreamingCodecType,
+  AudioStreamingSamplerate,
+  H264Level,
+  H264Profile,
+  PlatformAccessory,
+  SRTPCryptoSuites,
+  Service,
+} from 'homebridge';
+import { CameraController } from 'hap-nodejs';
 
-interface CameraDevice {
+import { CryzeWyzePlatform } from './index';
+import { CryzeStreamingDelegate } from './streamingDelegate';
+
+export interface CryzeCameraConfig {
   name: string;
-  deviceId: string;
-  streamName: string;
+  wyzeName?: string;
+  streamName?: string;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  width?: number;
+  height?: number;
+  fps?: number;
+  audio?: boolean;
 }
 
-export class CameraAccessory {
-  private accessory: PlatformAccessory;
-  private cameraService: Service;
-  private motionService?: Service;
-  private streamingDelegate: StreamingDelegate;
+export class CryzeCameraAccessory {
+  private readonly cameraController: CameraController;
+  private readonly motionService?: Service;
 
-  constructor(platform: any, accessory: PlatformAccessory, device: CameraDevice) {
-    this.accessory = accessory;
-    const { api, config, log } = platform;
+  constructor(
+    private readonly platform: CryzeWyzePlatform,
+    private readonly accessory: PlatformAccessory,
+    private readonly camera: CryzeCameraConfig,
+  ) {
+    const { Service, Characteristic } = this.platform.api.hap;
 
-    // Set accessory information
-    this.accessory.getService(api.hap.Service.AccessoryInformation)!
-      .setCharacteristic(api.hap.Characteristic.Manufacturer, 'Wyze')
-      .setCharacteristic(api.hap.Characteristic.Model, 'Camera')
-      .setCharacteristic(api.hap.Characteristic.SerialNumber, device.deviceId);
+    accessory.getService(Service.AccessoryInformation)
+      ?.setCharacteristic(Characteristic.Manufacturer, camera.manufacturer || 'Wyze')
+      .setCharacteristic(Characteristic.Model, camera.model || 'Cryze Camera')
+      .setCharacteristic(Characteristic.SerialNumber, camera.serialNumber || camera.streamName || camera.name);
 
-    // Create camera service
-    this.cameraService = this.accessory.addService(api.hap.Service.CameraRTPStreamManagement);
-    this.motionService = this.accessory.addService(api.hap.Service.MotionSensor, device.name);
+    const delegate = new CryzeStreamingDelegate(platform.log, platform.config, camera);
 
-    // Setup streaming delegate
-    this.streamingDelegate = new StreamingDelegate(
-      log,
-      config,
-      device.streamName,
-      api
-    );
+    this.cameraController = new CameraController({
+      cameraStreamCount: 2,
+      delegate,
+      streamingOptions: {
+        supportedCryptoSuites: [
+          SRTPCryptoSuites.AES_CM_128_HMAC_SHA1_80,
+          SRTPCryptoSuites.NONE,
+        ],
+        video: {
+          codec: {
+            profiles: [H264Profile.BASELINE, H264Profile.MAIN, H264Profile.HIGH],
+            levels: [H264Level.LEVEL3_1, H264Level.LEVEL3_2, H264Level.LEVEL4_0],
+          },
+          resolutions: [
+            [camera.width || 1440, camera.height || 1440, camera.fps || 15],
+            [1280, 720, 15],
+            [640, 360, 15],
+            [320, 180, 15],
+          ],
+        },
+        audio: camera.audio === false ? undefined : {
+          comfort_noise: false,
+          codecs: [{
+            type: AudioStreamingCodecType.OPUS,
+            audioChannels: 1,
+            samplerate: [AudioStreamingSamplerate.KHZ_16],
+          }],
+        },
+      },
+      sensors: {
+        motion: true,
+      },
+    });
 
-    this.cameraService.setCharacteristic(
-      api.hap.Characteristic.SupportedVideoStreamConfiguration,
-      this.streamingDelegate.getSupportedVideoStreamConfiguration()
-    );
+    accessory.configureController(this.cameraController);
+    this.motionService = this.cameraController.motionService;
+    this.motionService?.updateCharacteristic(Characteristic.MotionDetected, false);
 
-    this.cameraService.setCharacteristic(
-      api.hap.Characteristic.SupportedAudioStreamConfiguration,
-      this.streamingDelegate.getSupportedAudioStreamConfiguration()
-    );
-
-    this.cameraService.setCharacteristic(
-      api.hap.Characteristic.SupportedRTPConfiguration,
-      this.streamingDelegate.getSupportedRTPConfiguration()
-    );
-
-    this.cameraService.setCharacteristic(
-      api.hap.Characteristic.StreamingStatus,
-      this.streamingDelegate.getStreamingStatus()
-    );
-
-    // Handle stream management
-    this.cameraService.getCharacteristic(api.hap.Characteristic.SetupEndpoints)
-      .onSet(this.streamingDelegate.handleSetupEndpoints.bind(this.streamingDelegate));
-
-    this.cameraService.getCharacteristic(api.hap.Characteristic.SelectedRTPStreamConfiguration)
-      .onSet(this.streamingDelegate.handleSelectedStreamConfiguration.bind(this.streamingDelegate));
-
-    log.info(`Camera configured: ${device.name}`);
+    platform.log.info(`Configured Cryze Wyze camera: ${camera.name} (${camera.streamName})`);
   }
 }

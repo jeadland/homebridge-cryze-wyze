@@ -1,55 +1,88 @@
-import { API, PlatformConfig, StaticPlatformPlugin, Logger, PlatformAccessory } from 'homebridge';
-import { CameraAccessory } from './cameraAccessory';
+import {
+  API,
+  APIEvent,
+  Categories,
+  DynamicPlatformPlugin,
+  Logger,
+  PlatformAccessory,
+  PlatformConfig,
+} from 'homebridge';
 
-interface CryzeCamera {
+import { CryzeCameraAccessory, CryzeCameraConfig } from './cameraAccessory';
+import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
+
+export interface CryzeWyzeConfig extends PlatformConfig {
   name: string;
-  deviceId: string;
-  streamName: string;
+  rtspHost?: string;
+  rtspPort?: number;
+  ffmpegPath?: string;
+  cameras?: CryzeCameraConfig[];
 }
 
-class CryzeWyzePlatform implements StaticPlatformPlugin {
-  private readonly log: Logger;
-  private readonly config: PlatformConfig;
-  private readonly api: API;
+export class CryzeWyzePlatform implements DynamicPlatformPlugin {
+  public readonly accessories: PlatformAccessory[] = [];
 
-  constructor(log: Logger, config: PlatformConfig, api: API) {
-    this.log = log;
-    this.config = config;
-    this.api = api;
+  constructor(
+    public readonly log: Logger,
+    public readonly config: CryzeWyzeConfig,
+    public readonly api: API,
+  ) {
+    this.log.info('Initializing Cryze Wyze platform');
 
-    this.log.debug('Finished initializing platform:', this.config.name);
+    this.api.on(APIEvent.DID_FINISH_LAUNCHING, () => {
+      this.discoverConfiguredCameras();
+    });
   }
 
-  async accessories(callback: (foundAccessories: PlatformAccessory[]) => void): Promise<void> {
-    this.log.info('Loading cameras from Cryze...');
+  configureAccessory(accessory: PlatformAccessory): void {
+    this.log.debug(`Loading cached accessory: ${accessory.displayName}`);
+    this.accessories.push(accessory);
+  }
 
-    try {
-      // Fetch cameras from Cryze API
-      const response = await fetch(`${this.config.cryzeApiUrl || 'http://localhost:8080'}/cameras`);
-      const cameras: CryzeCamera[] = await response.json();
+  private discoverConfiguredCameras(): void {
+    const cameras = this.config.cameras ?? [];
 
-      this.log.info(`Found ${cameras.length} cameras`);
+    if (!cameras.length) {
+      this.log.warn('No cameras configured. Add cameras in Homebridge UI or config.json.');
+    }
 
-      const accessories = cameras.map(camera => {
-        const uuid = this.api.hap.uuid.generate(camera.deviceId);
-        const accessory = new this.api.platformAccessory(camera.name, uuid);
+    const configuredUuids = new Set<string>();
 
-        accessory.context.device = camera;
+    for (const camera of cameras) {
+      const streamName = camera.streamName || camera.wyzeName;
+      if (!camera.name || !streamName) {
+        this.log.warn(`Skipping invalid camera config: ${JSON.stringify(camera)}`);
+        continue;
+      }
 
-        // Configure camera accessory
-        new CameraAccessory(this, accessory, camera);
+      const uuid = this.api.hap.uuid.generate(`cryze-wyze:${streamName}`);
+      configuredUuids.add(uuid);
+      const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
 
-        return accessory;
-      });
+      if (existingAccessory) {
+        existingAccessory.context.camera = { ...camera, streamName };
+        this.api.updatePlatformAccessories([existingAccessory]);
+        new CryzeCameraAccessory(this, existingAccessory, { ...camera, streamName });
+        this.log.info(`Restored camera: ${camera.name}`);
+      } else {
+        const accessory = new this.api.platformAccessory(camera.name, uuid, Categories.CAMERA);
+        accessory.context.camera = { ...camera, streamName };
+        new CryzeCameraAccessory(this, accessory, { ...camera, streamName });
+        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+        this.log.info(`Added camera: ${camera.name}`);
+      }
+    }
 
-      callback(accessories);
-    } catch (error) {
-      this.log.error('Failed to load cameras:', error);
-      callback([]);
+    const staleAccessories = this.accessories.filter(accessory => !configuredUuids.has(accessory.UUID));
+    if (staleAccessories.length) {
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, staleAccessories);
+      for (const accessory of staleAccessories) {
+        this.log.info(`Removed stale camera: ${accessory.displayName}`);
+      }
     }
   }
 }
 
-module.exports = (api: API): void => {
-  api.registerPlatform('CryzeWyze', CryzeWyzePlatform);
+export default (api: API): void => {
+  api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, CryzeWyzePlatform);
 };
