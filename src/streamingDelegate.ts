@@ -15,7 +15,6 @@ import {
   StreamingRequest,
 } from 'homebridge';
 import { ChildProcess, spawn } from 'child_process';
-import { CameraController } from 'hap-nodejs';
 
 import { CryzeCameraConfig } from './cameraAccessory';
 import { CryzeWyzeConfig } from './index';
@@ -92,7 +91,7 @@ export class CryzeStreamingDelegate implements CameraStreamingDelegate {
 
   prepareStream(request: PrepareStreamRequest, callback: PrepareStreamCallback): void {
     const video = request.video;
-    const videoSSRC = CameraController.generateSynchronisationSource();
+    const videoSSRC = Math.floor(Math.random() * 0xffffffff);
     const localVideoPort = getPort();
 
     this.pendingSessions[request.sessionID] = {

@@ -1,6 +1,6 @@
 {
   "name": "homebridge-cryze-wyze",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Homebridge plugin for Wyze cameras via Cryze (supports Doorbell Pro, Battery Cam Pro)",
   "main": "dist/index.js",
   "scripts": {

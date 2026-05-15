@@ -4,11 +4,8 @@ import {
   H264Level,
   H264Profile,
   PlatformAccessory,
-  SRTPCryptoSuites,
   Service,
 } from 'homebridge';
-import { CameraController } from 'hap-nodejs';
-
 import { CryzeWyzePlatform } from './index';
 import { CryzeStreamingDelegate } from './streamingDelegate';
 
@@ -26,7 +23,7 @@ export interface CryzeCameraConfig {
 }
 
 export class CryzeCameraAccessory {
-  private readonly cameraController: CameraController;
+  private readonly cameraController: any;
   private readonly motionService?: Service;
 
   constructor(
@@ -43,18 +40,20 @@ export class CryzeCameraAccessory {
 
     const delegate = new CryzeStreamingDelegate(platform.log, platform.config, camera);
 
-    this.cameraController = new CameraController({
+    const hap = this.platform.api.hap as any;
+
+    this.cameraController = new hap.CameraController({
       cameraStreamCount: 2,
       delegate,
       streamingOptions: {
         supportedCryptoSuites: [
-          SRTPCryptoSuites.AES_CM_128_HMAC_SHA1_80,
-          SRTPCryptoSuites.NONE,
+          hap.SRTPCryptoSuites.AES_CM_128_HMAC_SHA1_80,
+          hap.SRTPCryptoSuites.NONE,
         ],
         video: {
           codec: {
-            profiles: [H264Profile.BASELINE, H264Profile.MAIN, H264Profile.HIGH],
-            levels: [H264Level.LEVEL3_1, H264Level.LEVEL3_2, H264Level.LEVEL4_0],
+            profiles: [hap.H264Profile.BASELINE, hap.H264Profile.MAIN, hap.H264Profile.HIGH],
+            levels: [hap.H264Level.LEVEL3_1, hap.H264Level.LEVEL3_2, hap.H264Level.LEVEL4_0],
           },
           resolutions: [
             [camera.width || 1440, camera.height || 1440, camera.fps || 15],
@@ -66,9 +65,9 @@ export class CryzeCameraAccessory {
         audio: camera.audio === false ? undefined : {
           comfort_noise: false,
           codecs: [{
-            type: AudioStreamingCodecType.OPUS,
+            type: hap.AudioStreamingCodecType.OPUS,
             audioChannels: 1,
-            samplerate: [AudioStreamingSamplerate.KHZ_16],
+            samplerate: [hap.AudioStreamingSamplerate.KHZ_16],
           }],
         },
       },
